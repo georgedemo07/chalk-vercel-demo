@@ -1,0 +1,160 @@
+name: Build, Verify and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    name: Build, Chalk and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Create build provenance metadata
+        run: node scripts/create-build-metadata.mjs
+
+      - name: Setup Chalk
+        uses: crashappsec/setup-chalk-action@v0.0.3
+        with:
+          password: ${{ secrets.CHALK_PASSWORD }}
+          public_key: ${{ secrets.CHALK_PUBLIC_KEY }}
+          private_key: ${{ secrets.CHALK_PRIVATE_KEY }}
+
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel project configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel pull \
+            --yes \
+            --environment=production \
+            --token="$VERCEL_TOKEN"
+
+      - name: Build Vercel application
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel build \
+            --prod \
+            --token="$VERCEL_TOKEN"
+
+      - name: Check provenance artefact exists
+        run: |
+          test -f ".vercel/output/static/provenance/marker.js"
+
+      - name: Apply Chalk mark
+        env:
+          CHALK_PASSWORD: ${{ secrets.CHALK_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          MARKER=".vercel/output/static/provenance/marker.js"
+
+          chalk insert "$MARKER" \
+            2>/dev/null \
+            > /tmp/chalk-insert.json
+
+          echo "Chalk mark successfully inserted."
+
+      - name: Extract and verify Chalk mark
+        run: |
+          set -euo pipefail
+
+          MARKER=".vercel/output/static/provenance/marker.js"
+
+          chalk extract "$MARKER" \
+            2>/dev/null \
+            > /tmp/chalk-extract.json
+
+          VALIDATED=$(
+            jq -r \
+            '.[0]._CHALKS[0]._VALIDATED_SIGNATURE // false' \
+            /tmp/chalk-extract.json
+          )
+
+          echo "Chalk signature validated: $VALIDATED"
+
+          if [ "$VALIDATED" != "true" ]; then
+            echo "ERROR: Chalk signature verification failed."
+            exit 1
+          fi
+
+      - name: Create safe public Chalk report
+        run: |
+          set -euo pipefail
+
+          REPORT=".vercel/output/static/provenance/chalk.json"
+
+          jq '
+            .[0]._CHALKS[0] |
+            {
+              chalkId: (.CHALK_ID // null),
+              chalkVersion: (.CHALK_VERSION // null),
+              metadataId: (.METADATA_ID // null),
+              artifactType: (.ARTIFACT_TYPE // null),
+              artifactHash: (._CURRENT_HASH // null),
+              signaturePresent: (.SIGNATURE != null),
+              signatureValidated: (._VALIDATED_SIGNATURE == true)
+            }
+          ' \
+          /tmp/chalk-extract.json \
+          > "$REPORT"
+
+          echo "Safe public provenance report:"
+          cat "$REPORT"
+
+      - name: Deploy exact prebuilt application
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel deploy \
+            --prebuilt \
+            --prod \
+            --token="$VERCEL_TOKEN" \
+            > deployment-url.txt
+
+          echo "Deployment URL:"
+          cat deployment-url.txt
+
+      - name: Add deployment link to workflow summary
+        run: |
+          echo "## Deployment complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat deployment-url.txt >> "$GITHUB_STEP_SUMMARY"
+
+
+          

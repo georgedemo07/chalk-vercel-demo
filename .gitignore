@@ -39,3 +39,22 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local Vercel configuration 
+.vercel
+
+# Chalk binary and signing material 
+chalk 
+chalk.key 
+chalk.pub
+
+# Generated provenance files 
+public/provenance/build.json 
+public/provenance/marker.js
+
+# Temporary deployment output 
+deployment-url.txt
+
+# Chalk reports and logs
+chalk-reports*
+
