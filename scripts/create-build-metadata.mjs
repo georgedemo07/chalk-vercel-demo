@@ -42,10 +42,10 @@ await writeFile(
     "utf8" 
 );
 
-await writeFile( 
-    "public/provenance/marker.js", 
-    `globalThis.__BUILD_PROVENANCE__ = ${JSON.stringify(metadata)};\n`, 
-    "utf8" 
+await writeFile(
+  "public/provenance/marker.js",
+  `#!/usr/bin/env node\nglobalThis.__BUILD_PROVENANCE__ = ${JSON.stringify(metadata)};\n`,
+  "utf8"
 );
 
 console.log("Build provenance information created.");

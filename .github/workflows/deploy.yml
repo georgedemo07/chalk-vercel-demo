@@ -117,12 +117,39 @@ jobs:
           set -euo pipefail
 
           MARKER=".vercel/output/static/provenance/marker.js"
+          INSERT_REPORT="/tmp/chalk-insert.json"
 
-          chalk insert "$MARKER" \
-            2>/dev/null \
-            > /tmp/chalk-insert.json
+          echo "Preparing provenance artefact..."
 
-          echo "Chalk mark successfully inserted."
+          chmod +x "$MARKER"
+
+          echo "Applying signed Chalk mark..."
+
+          chalk insert "$MARKER" 2>/dev/null \
+            | sed '/^::/d' \
+            > "$INSERT_REPORT"
+
+          echo "Checking Chalk insert output..."
+
+          jq empty "$INSERT_REPORT"
+
+          SIGNATURE=$(
+            jq -r '
+              [
+                .[]
+                | ._CHALKS[]?
+                | .SIGNATURE?
+                | select(. != null)
+              ][0] // empty
+            ' "$INSERT_REPORT"
+          )
+
+          if [ -z "$SIGNATURE" ]; then
+            echo "ERROR: Chalk did not create a signed artefact."
+            exit 1
+          fi
+
+          echo "Signed Chalk mark successfully inserted."
 
       - name: Extract and verify Chalk mark
         run: |
