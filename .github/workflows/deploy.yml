@@ -40,12 +40,12 @@ jobs:
       - name: Create build provenance metadata
         run: node scripts/create-build-metadata.mjs
 
-      - name: Setup Chalk
-        uses: crashappsec/setup-chalk-action@v0.0.3
-        with:
-          password: ${{ secrets.CHALK_PASSWORD }}
-          public_key: ${{ secrets.CHALK_PUBLIC_KEY }}
-          private_key: ${{ secrets.CHALK_PRIVATE_KEY }}
+      - - name: Setup Chalk
+          uses: crashappsec/setup-chalk-action@main
+          with:
+            password: ${{ secrets.CHALK_PASSWORD }}
+            public_key: ${{ secrets.CHALK_PUBLIC_KEY }}
+            private_key: ${{ secrets.CHALK_PRIVATE_KEY }}
 
       - name: Install jq
         run: |
@@ -155,6 +155,5 @@ jobs:
           echo "## Deployment complete" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           cat deployment-url.txt >> "$GITHUB_STEP_SUMMARY"
-
 
           
