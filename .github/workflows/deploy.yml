@@ -134,6 +134,7 @@ jobs:
 
           VALIDATED=$(
             chalk extract "$MARKER" 2>/dev/null \
+            | sed '/^::/d' \
             | jq -r '.[] | ._CHALKS[] | ._VALIDATED_SIGNATURE'
           )
 
@@ -154,6 +155,7 @@ jobs:
           REPORT=".vercel/output/static/provenance/chalk.json"
 
           chalk extract "$MARKER" 2>/dev/null \
+            | sed '/^::/d' \
             | jq '
                 .[] |
                 ._CHALKS[] |
