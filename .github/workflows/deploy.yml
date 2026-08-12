@@ -40,7 +40,7 @@ jobs:
       - name: Create build provenance metadata
         run: node scripts/create-build-metadata.mjs
 
-      - - name: Setup Chalk
+      - name: Setup Chalk
           uses: crashappsec/setup-chalk-action@main
           with:
             password: ${{ secrets.CHALK_PASSWORD }}
