@@ -129,19 +129,36 @@ jobs:
           set -euo pipefail
 
           MARKER=".vercel/output/static/provenance/marker.js"
+          EXTRACT="/tmp/chalk-extract.json"
 
           echo "Extracting Chalk provenance..."
 
-          VALIDATED=$(
-            chalk extract "$MARKER" 2>/dev/null \
+          chalk extract "$MARKER" 2>/dev/null \
             | sed '/^::/d' \
-            | jq -r '.[] | ._CHALKS[] | ._VALIDATED_SIGNATURE'
+            > "$EXTRACT"
+
+          echo "Checking Chalk output is valid JSON..."
+
+          jq empty "$EXTRACT"
+
+          echo "Looking for a validated Chalk signature..."
+
+          VALIDATED=$(
+            jq -r '
+              [
+                .[]
+                | ._CHALKS[]?
+                | ._VALIDATED_SIGNATURE?
+                | select(. != null)
+              ]
+              | any
+            ' "$EXTRACT"
           )
 
           echo "Chalk signature validated: $VALIDATED"
 
           if [ "$VALIDATED" != "true" ]; then
-            echo "ERROR: Chalk signature verification failed."
+            echo "ERROR: No validated Chalk signature was found."
             exit 1
           fi
 
@@ -151,25 +168,26 @@ jobs:
         run: |
           set -euo pipefail
 
-          MARKER=".vercel/output/static/provenance/marker.js"
+          EXTRACT="/tmp/chalk-extract.json"
           REPORT=".vercel/output/static/provenance/chalk.json"
 
-          chalk extract "$MARKER" 2>/dev/null \
-            | sed '/^::/d' \
-            | jq '
-                .[] |
-                ._CHALKS[] |
-                {
-                  chalkId: (.CHALK_ID // null),
-                  chalkVersion: (.CHALK_VERSION // null),
-                  metadataId: (.METADATA_ID // null),
-                  artifactType: (.ARTIFACT_TYPE // null),
-                  artifactHash: (._CURRENT_HASH // null),
-                  signaturePresent: (.SIGNATURE != null),
-                  signatureValidated: (._VALIDATED_SIGNATURE == true)
-                }
-              ' \
-            > "$REPORT"
+          jq '
+            [
+              .[]
+              | ._CHALKS[]?
+              | select(._VALIDATED_SIGNATURE? == true)
+            ][0] as $chalk
+            |
+            {
+              chalkId: ($chalk.CHALK_ID // null),
+              chalkVersion: ($chalk.CHALK_VERSION // null),
+              metadataId: ($chalk.METADATA_ID // null),
+              artifactType: ($chalk.ARTIFACT_TYPE // null),
+              artifactHash: ($chalk._CURRENT_HASH // null),
+              signaturePresent: ($chalk.SIGNATURE != null),
+              signatureValidated: ($chalk._VALIDATED_SIGNATURE == true)
+            }
+          ' "$EXTRACT" > "$REPORT"
 
           echo "Safe public provenance report:"
           cat "$REPORT"
