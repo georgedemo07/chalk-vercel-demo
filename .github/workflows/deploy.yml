@@ -55,7 +55,7 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@58.7.1
 
-            - name: Verify Vercel credentials and project
+      - name: Verify Vercel credentials and project
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
