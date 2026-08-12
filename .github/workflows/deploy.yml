@@ -55,16 +55,39 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@58.7.1
 
-      - name: Create Vercel project link
+            - name: Verify Vercel credentials and project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          mkdir -p .vercel
+          set -euo pipefail
 
-          printf '{"orgId":"%s","projectId":"%s"}\n' \
-            "$VERCEL_ORG_ID" \
-            "$VERCEL_PROJECT_ID" \
-            > .vercel/project.json
+          STATUS=$(curl -sS \
+            -o /tmp/vercel-project.json \
+            -w "%{http_code}" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID")
 
-          echo "Vercel project link created."
+          echo "Vercel Project API status: $STATUS"
+
+          if [ "$STATUS" != "200" ]; then
+            echo "ERROR: Vercel token cannot access this project."
+            exit 1
+          fi
+
+          API_PROJECT_ID=$(jq -r '.id' /tmp/vercel-project.json)
+          API_ACCOUNT_ID=$(jq -r '.accountId' /tmp/vercel-project.json)
+
+          if [ "$API_PROJECT_ID" != "$VERCEL_PROJECT_ID" ]; then
+            echo "ERROR: VERCEL_PROJECT_ID does not match the project returned by Vercel."
+            exit 1
+          fi
+
+          if [ "$API_ACCOUNT_ID" != "$VERCEL_ORG_ID" ]; then
+            echo "ERROR: VERCEL_ORG_ID does not match the owner of the Vercel project."
+            exit 1
+          fi
+
+          echo "Vercel token, project ID and organisation ID are valid."
 
       - name: Pull Vercel project configuration
         env:
