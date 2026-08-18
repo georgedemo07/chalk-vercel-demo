@@ -51,6 +51,7 @@ chalk.pub
 # Generated provenance files 
 public/provenance/build.json 
 public/provenance/marker.js
+public/provenance/history.json
 
 # Temporary deployment output 
 deployment-url.txt

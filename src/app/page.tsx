@@ -22,35 +22,54 @@ type ChalkData = {
   signatureValidated: boolean;
 };
 
+type HistoryItem = {
+  commit: string;
+  shortCommit: string;
+  date: string;
+  message: string;
+};
+
 export default function Home() {
   const [build, setBuild] = useState<BuildData | null>(null);
   const [chalk, setChalk] = useState<ChalkData | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
   useEffect(() => {
-    fetch("/provenance/build.json")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Build metadata unavailable");
-        }
+  fetch("/provenance/build.json")
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Build metadata unavailable");
+      }
 
-        return response.json();
-      })
-      .then(setBuild)
-      .catch(console.error);
+      return response.json();
+    })
+    .then(setBuild)
+    .catch(console.error);
 
-    fetch("/provenance/chalk.json")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Chalk metadata unavailable");
-        }
+  fetch("/provenance/chalk.json")
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Chalk metadata unavailable");
+      }
 
-        return response.json();
-      })
-      .then(setChalk)
-      .catch(() => {
-        // Chalk information will not exist until the CI build.
-      });
-  }, []);
+      return response.json();
+    })
+    .then(setChalk)
+    .catch(() => {
+      // Chalk information will not exist until the CI build.
+    });
+
+  fetch("/provenance/history.json")
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Provenance history unavailable");
+      }
+
+      return response.json();
+    })
+    .then(setHistory)
+    .catch(console.error);
+}, []);
 
   const shortCommit =
     build?.commit && build.commit !== "local-development"
@@ -280,6 +299,118 @@ export default function Home() {
       </section>
 
       {/* ABOUT CHALK */}
+
+      {/* PROVENANCE TIMELINE */}
+
+      <section className="mx-auto max-w-6xl px-6 py-20">
+        <div>
+          <div className="mb-2 text-sm font-medium uppercase tracking-wider text-blue-400">
+            Deployment history
+          </div>
+
+          <h2 className="text-3xl font-semibold">
+            Provenance timeline
+          </h2>
+
+          <p className="mt-3 max-w-3xl text-slate-400">
+            Recent source-code versions leading to the current
+            deployment. The current deployment is the artefact
+            verified by Chalk.
+          </p>
+        </div>
+
+        <div className="mt-12 max-w-4xl">
+          {history.length === 0 ? (
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-6 text-slate-400">
+              Provenance history is not available yet.
+            </div>
+          ) : (
+            history.map((item, index) => {
+              const isCurrent =
+                build?.commit === item.commit;
+
+              return (
+                <div
+                  key={item.commit}
+                  className="relative flex gap-6 pb-10"
+                >
+                  {/* Timeline line */}
+                  {index !== history.length - 1 && (
+                    <div className="absolute left-[11px] top-6 h-full w-px bg-slate-800" />
+                  )}
+
+                  {/* Timeline marker */}
+                  <div
+                    className={`relative z-10 mt-1 h-6 w-6 shrink-0 rounded-full border-4 ${
+                      isCurrent
+                        ? "border-blue-400 bg-blue-400"
+                        : "border-slate-700 bg-slate-950"
+                    }`}
+                  />
+
+                  {/* Timeline content */}
+                  <div
+                    className={`w-full rounded-2xl border p-6 ${
+                      isCurrent
+                        ? "border-blue-500/40 bg-blue-500/5"
+                        : "border-slate-800 bg-slate-900"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <div
+                          className={`text-xs font-medium uppercase tracking-wider ${
+                            isCurrent
+                              ? "text-blue-400"
+                              : "text-slate-500"
+                          }`}
+                        >
+                          {isCurrent
+                            ? "Current deployment"
+                            : "Previous source version"}
+                        </div>
+
+                        <h3 className="mt-2 font-semibold text-slate-100">
+                          {item.message}
+                        </h3>
+                      </div>
+
+                      {isCurrent &&
+                        chalk?.signatureValidated && (
+                          <span className="rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs text-green-400">
+                            ✓ Chalk verified
+                          </span>
+                        )}
+                    </div>
+
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <div className="text-xs uppercase tracking-wider text-slate-500">
+                          Commit
+                        </div>
+
+                        <div className="mt-1 font-mono text-sm text-blue-300">
+                          {item.shortCommit}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs uppercase tracking-wider text-slate-500">
+                          Date
+                        </div>
+
+                        <div className="mt-1 text-sm text-slate-300">
+                          {new Date(item.date).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </section>        
 
       <section className="mx-auto max-w-6xl px-6 py-20">
         <h2 className="text-3xl font-semibold">
