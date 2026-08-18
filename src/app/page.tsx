@@ -183,11 +183,7 @@ export default function Home() {
           </div>
 
           <div className="mt-10 grid gap-4 md:grid-cols-2">
-            <DataCard
-              title="Repository"
-              value={build?.repository}
-            />
-
+            
             <DataCard
               title="Branch"
               value={build?.branch}
@@ -280,17 +276,6 @@ export default function Home() {
               }
             />
           </div>
-
-          {build?.runUrl && (
-            <a
-              href={build.runUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-8 inline-block text-blue-400 hover:text-blue-300"
-            >
-              View the GitHub Actions build →
-            </a>
-          )}
         </div>
       </section>
 
